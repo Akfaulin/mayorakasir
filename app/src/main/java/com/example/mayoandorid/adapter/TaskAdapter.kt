@@ -239,9 +239,9 @@ class TaskAdapter(
                     btnReportIssue.setOnClickListener { listener.onReportIssue(order) }
                 }
                 else -> {
-                    tvStatusBadge.text = "Siap Diambil"
-                    tvStatusBadge.setTextColor(Color.parseColor("#92400E"))
-                    tvStatusBadge.setBackgroundColor(Color.parseColor("#FEF3C7"))
+                    tvStatusBadge.text = "Siap Diantar"
+                    tvStatusBadge.setTextColor(Color.parseColor("#1E40AF"))
+                    tvStatusBadge.setBackgroundColor(Color.parseColor("#DBEAFE"))
 
                     btnPickup.visibility = View.VISIBLE
                     btnPickup.setOnClickListener { listener.onPickup(order) }

@@ -161,9 +161,33 @@ data class CourierReportSummary(
     val total_qty: Int = 0
 ) : Serializable
 
+data class ReportProductItem(
+    val product_id: Long = 0,
+    val name: String = "",
+    val sku: String = "",
+    val total_qty: Int = 0,
+    val orders_count: Int = 0,
+    val stores: List<String> = emptyList()
+) : Serializable
+
+data class ReportCustomerItem(
+    val store_name: String = "",
+    val customer_name: String = "",
+    val address: String = "",
+    val phone: String = "",
+    val total_orders: Int = 0,
+    val total_qty: Int = 0,
+    val order_codes: List<String> = emptyList(),
+    val products_summary: Map<String, Int> = emptyMap(),
+    val status: String = "delivered",
+    val delivered_at: String? = null
+) : Serializable
+
 data class CourierReportResponse(
     val user: User? = null,
     val fleet: Fleet? = null,
     val summary: CourierReportSummary? = null,
-    val tasks: TaskResponse? = null
+    val tasks: TaskResponse? = null,
+    val by_products: List<ReportProductItem>? = null,
+    val by_customers: List<ReportCustomerItem>? = null
 ) : Serializable

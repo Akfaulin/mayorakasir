@@ -208,8 +208,8 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
                 val totalKoli = selected.sumOf { if (it.total_qty > 0) it.total_qty else 1 }
 
                 AlertDialog.Builder(this)
-                    .setTitle("Serah Terima dari Gudang")
-                    .setMessage("Konfirmasi serah terima fisik $count pesanan sekaligus dari gudang dan muat ke mobil box armada ($plate)?\n\n• Jumlah Muatan: $totalKoli Koli\n• Estimasi Berat: ${String.format("%.1f", totalWeight)} kg\n• Armada: $plate")
+                    .setTitle("Mulai Antar Pesanan")
+                    .setMessage("Konfirmasi keberangkatan antaran $count pesanan ke reseller menggunakan armada ($plate)?\n\n• Jumlah Muatan: $totalKoli Koli\n• Estimasi Berat: ${String.format("%.1f", totalWeight)} kg\n• Armada: $plate")
                     .setPositiveButton("Konfirmasi & Muat ($count)") { _, _ ->
                         executeBulkPickup(selected.map { it.id }, plate)
                     }
@@ -374,7 +374,7 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
         if (canSelect) {
             layoutSelectAll.visibility = View.VISIBLE
             tvSelectAllCount.text = "$selectedCount/$totalSelectableCount"
-            tvSelectAllLabel.text = if (isPodMode) "Pilih Semua Pesanan untuk Rekam POD" else "Pilih Semua Pesanan Siap Muat"
+            tvSelectAllLabel.text = if (isPodMode) "Pilih Semua Pesanan untuk Serah Terima ke Reseller" else "Pilih Semua Pesanan Siap Diantar"
             cbSelectAll.setOnCheckedChangeListener(null)
             cbSelectAll.isChecked = (selectedCount > 0 && selectedCount == totalSelectableCount)
             cbSelectAll.setOnCheckedChangeListener { _, isChecked ->
@@ -388,10 +388,10 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
             cardBulkAction.visibility = View.VISIBLE
             if (isPodMode) {
                 tvBulkSelectedCount.text = "$selectedCount pesanan dipilih (POD)"
-                btnBulkPickup.text = "Rekam POD Sekaligus ($selectedCount)"
+                btnBulkPickup.text = "Serah Terima ke Reseller ($selectedCount)"
             } else {
                 tvBulkSelectedCount.text = "$selectedCount pesanan dipilih (Muat)"
-                btnBulkPickup.text = "Muat ke Armada ($selectedCount)"
+                btnBulkPickup.text = "Mulai Antar ($selectedCount)"
             }
         } else {
             cardBulkAction.visibility = View.GONE

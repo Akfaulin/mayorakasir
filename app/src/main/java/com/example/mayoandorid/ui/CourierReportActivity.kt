@@ -23,8 +23,13 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.mayoandorid.R
 import com.example.mayoandorid.adapter.CourierReportAdapter
+import com.example.mayoandorid.adapter.ReportCustomerAdapter
+import com.example.mayoandorid.adapter.ReportProductAdapter
 import com.example.mayoandorid.api.ApiClient
 import com.example.mayoandorid.model.CourierReportResponse
+import com.example.mayoandorid.model.Order
+import com.example.mayoandorid.model.ReportCustomerItem
+import com.example.mayoandorid.model.ReportProductItem
 import com.example.mayoandorid.util.SessionManager
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
@@ -51,6 +56,10 @@ class CourierReportActivity : AppCompatActivity() {
     private lateinit var tvReportTotalQty: TextView
     private lateinit var tvReportIssues: TextView
 
+    private lateinit var tabReportOrders: TextView
+    private lateinit var tabReportProducts: TextView
+    private lateinit var tabReportCustomers: TextView
+
     private lateinit var chipReportAll: TextView
     private lateinit var chipReportDelivered: TextView
     private lateinit var chipReportTransit: TextView
@@ -62,8 +71,16 @@ class CourierReportActivity : AppCompatActivity() {
     private lateinit var layoutEmptyReport: View
 
     private lateinit var reportAdapter: CourierReportAdapter
+    private lateinit var productAdapter: ReportProductAdapter
+    private lateinit var customerAdapter: ReportCustomerAdapter
+
+    private var activeViewMode = "orders" // "orders", "products", "customers"
     private var currentFilter: String? = null
     private var currentSearch = ""
+
+    private var cachedOrders: List<Order> = emptyList()
+    private var cachedProducts: List<ReportProductItem> = emptyList()
+    private var cachedCustomers: List<ReportCustomerItem> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,6 +122,10 @@ class CourierReportActivity : AppCompatActivity() {
         tvReportTotalQty = findViewById(R.id.tvReportTotalQty)
         tvReportIssues = findViewById(R.id.tvReportIssues)
 
+        tabReportOrders = findViewById(R.id.tabReportOrders)
+        tabReportProducts = findViewById(R.id.tabReportProducts)
+        tabReportCustomers = findViewById(R.id.tabReportCustomers)
+
         chipReportAll = findViewById(R.id.chipReportAll)
         chipReportDelivered = findViewById(R.id.chipReportDelivered)
         chipReportTransit = findViewById(R.id.chipReportTransit)
@@ -117,6 +138,9 @@ class CourierReportActivity : AppCompatActivity() {
 
         rvReportTasks.layoutManager = LinearLayoutManager(this)
         reportAdapter = CourierReportAdapter(this)
+        productAdapter = ReportProductAdapter()
+        customerAdapter = ReportCustomerAdapter(this)
+
         rvReportTasks.adapter = reportAdapter
     }
 
@@ -128,6 +152,24 @@ class CourierReportActivity : AppCompatActivity() {
         btnExportPdf.setOnClickListener { downloadReportFile("pdf") }
         btnExportExcel.setOnClickListener { downloadReportFile("excel") }
 
+        tabReportOrders.setOnClickListener {
+            activeViewMode = "orders"
+            updateTabStyles()
+            filterAndDisplayCurrentTab()
+        }
+
+        tabReportProducts.setOnClickListener {
+            activeViewMode = "products"
+            updateTabStyles()
+            filterAndDisplayCurrentTab()
+        }
+
+        tabReportCustomers.setOnClickListener {
+            activeViewMode = "customers"
+            updateTabStyles()
+            filterAndDisplayCurrentTab()
+        }
+
         chipReportAll.setOnClickListener { setFilter(null) }
         chipReportDelivered.setOnClickListener { setFilter("delivered") }
         chipReportTransit.setOnClickListener { setFilter("shipped") }
@@ -137,10 +179,26 @@ class CourierReportActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 currentSearch = s?.toString()?.trim().orEmpty()
-                loadReport()
+                filterAndDisplayCurrentTab()
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+    }
+
+    private fun updateTabStyles() {
+        val selectedBg = R.drawable.bg_chip_selected
+        val unselectedBg = android.R.color.transparent
+        val selectedText = Color.WHITE
+        val unselectedText = Color.parseColor("#334155")
+
+        tabReportOrders.setBackgroundResource(if (activeViewMode == "orders") selectedBg else unselectedBg)
+        tabReportOrders.setTextColor(if (activeViewMode == "orders") selectedText else unselectedText)
+
+        tabReportProducts.setBackgroundResource(if (activeViewMode == "products") selectedBg else unselectedBg)
+        tabReportProducts.setTextColor(if (activeViewMode == "products") selectedText else unselectedText)
+
+        tabReportCustomers.setBackgroundResource(if (activeViewMode == "customers") selectedBg else unselectedBg)
+        tabReportCustomers.setTextColor(if (activeViewMode == "customers") selectedText else unselectedText)
     }
 
     private fun setFilter(filter: String?) {
@@ -192,9 +250,21 @@ class CourierReportActivity : AppCompatActivity() {
                         tvReportIssues.text = summary.issues_count.toString()
                     }
 
-                    val orders = report.tasks?.data ?: emptyList()
-                    reportAdapter.setOrders(orders)
-                    layoutEmptyReport.visibility = if (orders.isEmpty()) View.VISIBLE else View.GONE
+                    cachedOrders = report.tasks?.data ?: emptyList()
+
+                    cachedProducts = if (!report.by_products.isNullOrEmpty()) {
+                        report.by_products
+                    } else {
+                        computeLocalProducts(cachedOrders)
+                    }
+
+                    cachedCustomers = if (!report.by_customers.isNullOrEmpty()) {
+                        report.by_customers
+                    } else {
+                        computeLocalCustomers(cachedOrders)
+                    }
+
+                    filterAndDisplayCurrentTab()
                 } else {
                     layoutEmptyReport.visibility = View.VISIBLE
                     Toast.makeText(this@CourierReportActivity, "Gagal memuat laporan pengantaran", Toast.LENGTH_SHORT).show()
@@ -207,6 +277,127 @@ class CourierReportActivity : AppCompatActivity() {
                 Toast.makeText(this@CourierReportActivity, "Koneksi bermasalah: ${t.message}", Toast.LENGTH_SHORT).show()
             }
         })
+    }
+
+    private fun filterAndDisplayCurrentTab() {
+        val query = currentSearch.lowercase()
+
+        when (activeViewMode) {
+            "products" -> {
+                rvReportTasks.adapter = productAdapter
+                val filtered = if (query.isEmpty()) {
+                    cachedProducts
+                } else {
+                    cachedProducts.filter {
+                        it.name.lowercase().contains(query) ||
+                        it.sku.lowercase().contains(query) ||
+                        it.stores.any { s -> s.lowercase().contains(query) }
+                    }
+                }
+                productAdapter.setProducts(filtered)
+                layoutEmptyReport.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+            }
+            "customers" -> {
+                rvReportTasks.adapter = customerAdapter
+                val filtered = if (query.isEmpty()) {
+                    cachedCustomers
+                } else {
+                    cachedCustomers.filter {
+                        it.store_name.lowercase().contains(query) ||
+                        it.customer_name.lowercase().contains(query) ||
+                        it.address.lowercase().contains(query) ||
+                        it.phone.contains(query) ||
+                        it.order_codes.any { c -> c.lowercase().contains(query) }
+                    }
+                }
+                customerAdapter.setCustomers(filtered)
+                layoutEmptyReport.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+            }
+            else -> {
+                rvReportTasks.adapter = reportAdapter
+                val filtered = if (query.isEmpty()) {
+                    cachedOrders
+                } else {
+                    cachedOrders.filter {
+                        val code = (it.calculation_code ?: it.id.toString()).lowercase()
+                        val store = (it.store_name ?: "").lowercase()
+                        val rec = (it.recipient_name ?: "").lowercase()
+                        val addr = (it.shipping_address ?: "").lowercase()
+                        code.contains(query) || store.contains(query) || rec.contains(query) || addr.contains(query)
+                    }
+                }
+                reportAdapter.setOrders(filtered)
+                layoutEmptyReport.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
+    private fun computeLocalProducts(orders: List<Order>): List<ReportProductItem> {
+        val map = mutableMapOf<Long, ReportProductItem>()
+        for (order in orders) {
+            val store = order.store_name ?: "Toko Reseller"
+            val items = order.items ?: emptyList()
+            for (item in items) {
+                val pId = item.product_id
+                val existing = map[pId]
+                val pName = item.product?.name ?: "Produk Mayora"
+                val pSku = item.product?.sku ?: "SKU-$pId"
+                val newQty = (existing?.total_qty ?: 0) + item.quantity
+                val newOrders = (existing?.orders_count ?: 0) + 1
+                val storesList = (existing?.stores ?: emptyList()).toMutableList()
+                if (!storesList.contains(store)) storesList.add(store)
+
+                map[pId] = ReportProductItem(
+                    product_id = pId,
+                    name = pName,
+                    sku = pSku,
+                    total_qty = newQty,
+                    orders_count = newOrders,
+                    stores = storesList
+                )
+            }
+        }
+        return map.values.sortedByDescending { it.total_qty }
+    }
+
+    private fun computeLocalCustomers(orders: List<Order>): List<ReportCustomerItem> {
+        val map = mutableMapOf<String, ReportCustomerItem>()
+        for (order in orders) {
+            val store = order.store_name ?: "Toko Reseller"
+            val addr = order.shipping_address ?: "Alamat belum tercatat"
+            val key = "$store-$addr"
+            val owner = order.recipient_name ?: "-"
+            val phone = order.recipient_phone ?: ""
+            val code = order.calculation_code ?: "#${order.id}"
+
+            val existing = map[key]
+            val totalOrders = (existing?.total_orders ?: 0) + 1
+            val totalQty = (existing?.total_qty ?: 0) + (if (order.total_qty > 0) order.total_qty else 1)
+            val codeList = (existing?.order_codes ?: emptyList()).toMutableList()
+            if (!codeList.contains(code)) codeList.add(code)
+
+            val pMap = (existing?.products_summary ?: emptyMap()).toMutableMap()
+            order.items?.forEach { itm ->
+                val pName = itm.product?.name ?: "Produk Mayora"
+                pMap[pName] = (pMap[pName] ?: 0) + itm.quantity
+            }
+
+            val status = if (order.shipping_status == "delivered") "delivered" else (order.shipping_status ?: "shipped")
+
+            map[key] = ReportCustomerItem(
+                store_name = store,
+                customer_name = owner,
+                address = addr,
+                phone = phone,
+                total_orders = totalOrders,
+                total_qty = totalQty,
+                order_codes = codeList,
+                products_summary = pMap,
+                status = status,
+                delivered_at = order.delivered_at
+            )
+        }
+        return map.values.sortedByDescending { it.total_qty }
     }
 
     private fun downloadReportFile(format: String) {
@@ -224,8 +415,8 @@ class CourierReportActivity : AppCompatActivity() {
 
         val request = Request.Builder()
             .url(url)
-            .header("Authorization", "Bearer ${sessionManager.getToken()}")
-            .header("Accept", if (format == "pdf") "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            .addHeader("Authorization", "Bearer ${sessionManager.getToken()}")
+            .addHeader("Accept", "application/json")
             .build()
 
         val client = OkHttpClient.Builder()
@@ -242,31 +433,28 @@ class CourierReportActivity : AppCompatActivity() {
             }
 
             override fun onResponse(call: Call, response: Response) {
+                runOnUiThread { progressDialog.dismiss() }
                 if (response.isSuccessful && response.body != null) {
-                    val ext = if (format == "pdf") "pdf" else "xlsx"
-                    val mimeType = if (format == "pdf") "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    val fileName = "Laporan_Kurir_Mayora_${System.currentTimeMillis()}.$ext"
-
                     try {
-                        val file = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
-                        file.outputStream().use { out ->
-                            response.body!!.byteStream().copyTo(out)
-                        }
+                        val ext = if (format == "pdf") "pdf" else "xlsx"
+                        val fileName = "Laporan_Kurir_Mayora_${System.currentTimeMillis()}.$ext"
+                        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                        val file = File(downloadsDir, fileName)
+
+                        val bytes = response.body!!.bytes()
+                        file.writeBytes(bytes)
 
                         runOnUiThread {
-                            progressDialog.dismiss()
                             Toast.makeText(this@CourierReportActivity, "Dokumen $format berhasil diunduh!", Toast.LENGTH_SHORT).show()
-                            openDownloadedFile(file, mimeType)
+                            openDownloadedFile(file, format)
                         }
                     } catch (e: Exception) {
                         runOnUiThread {
-                            progressDialog.dismiss()
                             Toast.makeText(this@CourierReportActivity, "Gagal menyimpan file: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } else {
                     runOnUiThread {
-                        progressDialog.dismiss()
                         Toast.makeText(this@CourierReportActivity, "Gagal mengunduh dari server: ${response.code}", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -274,22 +462,18 @@ class CourierReportActivity : AppCompatActivity() {
         })
     }
 
-    private fun openDownloadedFile(file: File, mimeType: String) {
+    private fun openDownloadedFile(file: File, format: String) {
         try {
-            val uri: Uri = FileProvider.getUriForFile(
-                this,
-                "${applicationContext.packageName}.fileprovider",
-                file
-            )
-
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            val mimeType = if (format == "pdf") "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            startActivity(Intent.createChooser(intent, "Buka Dokumen Laporan Mayora"))
-        } catch (e: Exception) {
-            Toast.makeText(this, "File tersimpan di: ${file.name}", Toast.LENGTH_LONG).show()
+            startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(this, "File tersimpan di folder Download: ${file.name}", Toast.LENGTH_LONG).show()
         }
     }
 }

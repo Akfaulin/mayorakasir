@@ -186,11 +186,11 @@ class PodActivity : AppCompatActivity() {
         if (orders.size > 1) {
             tvOrderTitle.text = "${orders.size} Pesanan Sekaligus · $store"
             cardSelectedOrdersSummary.visibility = View.VISIBLE
-            tvBulkSummaryHeader.text = "📦 Serah Terima Sekaligus (${orders.size} Pesanan)"
+            tvBulkSummaryHeader.text = "🤝 Serah Terima ke Reseller (${orders.size} Pesanan)"
             val orderCodes = orders.joinToString(", ") { "#" + (it.calculation_code ?: it.id.toString()) }
             tvBulkOrdersList.text = orderCodes
 
-            btnSubmitPod.text = "Simpan POD (${orders.size} Pesanan)"
+            btnSubmitPod.text = "Konfirmasi Serah Terima ke Reseller (${orders.size} Pesanan)"
 
             val defaultRecipient = firstOrder.recipient_name ?: (firstOrder.store_name ?: "")
             etRecipientName.setText(defaultRecipient)
@@ -199,7 +199,7 @@ class PodActivity : AppCompatActivity() {
             val code = firstOrder.calculation_code ?: firstOrder.id.toString()
             tvOrderTitle.text = "#$code · $store"
             cardSelectedOrdersSummary.visibility = View.GONE
-            btnSubmitPod.text = "Simpan Bukti Pengiriman (POD)"
+            btnSubmitPod.text = "Konfirmasi Serah Terima ke Reseller (POD)"
 
             val defaultRecipient = firstOrder.recipient_name ?: (firstOrder.store_name ?: "")
             etRecipientName.setText(defaultRecipient)
@@ -333,7 +333,7 @@ class PodActivity : AppCompatActivity() {
                     if (response.isSuccessful) {
                         btnSubmitPod.isEnabled = true
                         progressBarPod.visibility = View.GONE
-                        Toast.makeText(this@PodActivity, "Bukti Pengiriman (POD) untuk ${orderIds.size} pesanan berhasil direkam!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@PodActivity, "Serah terima ${orderIds.size} pesanan ke reseller berhasil!", Toast.LENGTH_SHORT).show()
                         setResult(RESULT_OK)
                         finish()
                     } else {
@@ -353,7 +353,7 @@ class PodActivity : AppCompatActivity() {
                     progressBarPod.visibility = View.GONE
 
                     if (response.isSuccessful) {
-                        Toast.makeText(this@PodActivity, "Bukti Pengiriman (POD) berhasil direkam. Pesanan selesai!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@PodActivity, "Serah terima ke reseller berhasil! Pesanan selesai.", Toast.LENGTH_SHORT).show()
                         setResult(RESULT_OK)
                         finish()
                     } else {

@@ -88,6 +88,7 @@ data class Order(
 ) : Serializable
 
 data class CourierSummary(
+    val ready_to_deliver: Int = 0,
     val ready_to_pick: Int = 0,
     val in_transit: Int = 0,
     val delivered_today: Int = 0,
@@ -183,11 +184,36 @@ data class ReportCustomerItem(
     val delivered_at: String? = null
 ) : Serializable
 
+data class ReportDailyItem(
+    val date: String = "",
+    val formatted_date: String = "",
+    val day_name: String = "",
+    val total_orders: Int = 0,
+    val total_qty: Int = 0,
+    val total_stores: Int = 0,
+    val destinations: List<ReportDestinationItem> = emptyList()
+) : Serializable
+
+data class ReportDestinationItem(
+    val order_code: String = "",
+    val store_name: String = "",
+    val customer_name: String = "",
+    val address: String = "",
+    val phone: String = "",
+    val qty: Int = 0,
+    val weight_kg: Double = 0.0,
+    val status: String = "shipped",
+    val delivery_time: String = "",
+    val pod_receiver: String? = null,
+    val fleet_plate: String? = null
+) : Serializable
+
 data class CourierReportResponse(
     val user: User? = null,
     val fleet: Fleet? = null,
     val summary: CourierReportSummary? = null,
     val tasks: TaskResponse? = null,
+    val by_daily: List<ReportDailyItem>? = null,
     val by_products: List<ReportProductItem>? = null,
     val by_customers: List<ReportCustomerItem>? = null
 ) : Serializable

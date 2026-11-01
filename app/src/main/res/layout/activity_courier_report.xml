@@ -326,55 +326,74 @@
                     </LinearLayout>
                 </HorizontalScrollView>
 
-                <!-- View Mode Segmented Control: Pesanan, By Produk, By Customer -->
-                <LinearLayout
-                    android:id="@+id/layoutReportTabs"
+                <!-- View Mode Segmented Control: Pesanan, Per Hari, By Produk, By Customer -->
+                <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:background="@drawable/bg_rounded_card"
-                    android:padding="4dp"
+                    android:scrollbars="none"
                     android:layout_marginBottom="12dp">
 
-                    <TextView
-                        android:id="@+id/tabReportOrders"
-                        android:layout_width="0dp"
+                    <LinearLayout
+                        android:id="@+id/layoutReportTabs"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="📋 Per Pesanan"
-                        android:gravity="center"
-                        android:paddingVertical="9dp"
-                        android:textColor="@color/white"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:background="@drawable/bg_chip_selected" />
+                        android:orientation="horizontal"
+                        android:background="@drawable/bg_rounded_card"
+                        android:padding="4dp">
 
-                    <TextView
-                        android:id="@+id/tabReportProducts"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="📦 By Produk"
-                        android:gravity="center"
-                        android:paddingVertical="9dp"
-                        android:textColor="@color/slate_700"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:background="@android:color/transparent" />
+                        <TextView
+                            android:id="@+id/tabReportOrders"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📋 Per Pesanan"
+                            android:gravity="center"
+                            android:paddingVertical="9dp"
+                            android:paddingHorizontal="14dp"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:background="@drawable/bg_chip_selected" />
 
-                    <TextView
-                        android:id="@+id/tabReportCustomers"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="🏪 By Customer"
-                        android:gravity="center"
-                        android:paddingVertical="9dp"
-                        android:textColor="@color/slate_700"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:background="@android:color/transparent" />
-                </LinearLayout>
+                        <TextView
+                            android:id="@+id/tabReportDaily"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📅 Per Hari (Rute)"
+                            android:gravity="center"
+                            android:paddingVertical="9dp"
+                            android:paddingHorizontal="14dp"
+                            android:textColor="@color/slate_700"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:background="@android:color/transparent" />
+
+                        <TextView
+                            android:id="@+id/tabReportProducts"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📦 By Produk"
+                            android:gravity="center"
+                            android:paddingVertical="9dp"
+                            android:paddingHorizontal="14dp"
+                            android:textColor="@color/slate_700"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:background="@android:color/transparent" />
+
+                        <TextView
+                            android:id="@+id/tabReportCustomers"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🏪 By Customer"
+                            android:gravity="center"
+                            android:paddingVertical="9dp"
+                            android:paddingHorizontal="14dp"
+                            android:textColor="@color/slate_700"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:background="@android:color/transparent" />
+                    </LinearLayout>
+                </HorizontalScrollView>
 
                 <!-- Search Input -->
                 <com.google.android.material.textfield.TextInputLayout

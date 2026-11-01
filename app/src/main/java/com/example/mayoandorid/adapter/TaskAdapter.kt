@@ -39,31 +39,20 @@ class TaskAdapter(
 
     fun setOrders(orders: List<Order>?) {
         this.orderList = orders ?: emptyList()
-        val validIds = (getReadyToPickOrders() + getInTransitOrders()).map { it.id }.toSet()
+        val validIds = getSelectableOrders().map { it.id }.toSet()
         selectedOrderIds.retainAll(validIds)
         notifyDataSetChanged()
         notifySelectionChanged()
     }
 
-    fun getReadyToPickOrders(): List<Order> {
-        return orderList.filter {
-            val status = it.shipping_status ?: "pending"
-            status != "delivered" && status != "shipped"
-        }
+    fun getSelectableOrders(): List<Order> {
+        return orderList.filter { (it.shipping_status ?: "pending") != "delivered" }
     }
 
-    fun getInTransitOrders(): List<Order> {
-        return orderList.filter {
-            val status = it.shipping_status ?: "pending"
-            status == "shipped"
-        }
-    }
+    fun getReadyToPickOrders(): List<Order> = getSelectableOrders()
+    fun getInTransitOrders(): List<Order> = getSelectableOrders()
 
-    fun isPodSelection(): Boolean {
-        if (selectedOrderIds.isEmpty()) return activeFilter == "in_transit"
-        val firstSelected = orderList.firstOrNull { selectedOrderIds.contains(it.id) }
-        return firstSelected?.shipping_status == "shipped"
-    }
+    fun isPodSelection(): Boolean = true
 
     fun getSelectedOrderIds(): List<Long> {
         return selectedOrderIds.toList()
@@ -74,15 +63,15 @@ class TaskAdapter(
     }
 
     fun selectAllReadyOrders(select: Boolean) {
-        selectAll(select, false)
+        selectAll(select, true)
     }
 
     fun selectAllTransitOrders(select: Boolean) {
         selectAll(select, true)
     }
 
-    fun selectAll(select: Boolean, forPod: Boolean) {
-        val targetOrders = if (forPod) getInTransitOrders() else getReadyToPickOrders()
+    fun selectAll(select: Boolean, forPod: Boolean = true) {
+        val targetOrders = getSelectableOrders()
         if (select) {
             selectedOrderIds.clear()
             selectedOrderIds.addAll(targetOrders.map { it.id })
@@ -100,9 +89,8 @@ class TaskAdapter(
     }
 
     private fun notifySelectionChanged() {
-        val isPod = isPodSelection()
-        val totalSelectable = if (isPod) getInTransitOrders().size else getReadyToPickOrders().size
-        listener.onSelectionChanged(selectedOrderIds.size, totalSelectable, isPod)
+        val totalSelectable = getSelectableOrders().size
+        listener.onSelectionChanged(selectedOrderIds.size, totalSelectable, true)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TaskViewHolder {
@@ -172,21 +160,8 @@ class TaskAdapter(
             }
 
             btnPickup.visibility = View.GONE
-            btnSubmitPod.visibility = View.GONE
-            btnReportIssue.visibility = View.GONE
-            btnViewPod.visibility = View.GONE
-
-            val isReadyToPick = shippingStatus != "delivered" && shippingStatus != "shipped"
-            val isInTransit = shippingStatus == "shipped"
-
-            val hasSelection = selectedOrderIds.isNotEmpty()
-            val selectionIsPod = isPodSelection()
-
-            val canSelect = when {
-                !hasSelection -> isReadyToPick || isInTransit
-                selectionIsPod -> isInTransit
-                else -> isReadyToPick
-            }
+            val isDelivered = shippingStatus == "delivered"
+            val canSelect = !isDelivered
 
             if (canSelect) {
                 cbSelectOrder.visibility = View.VISIBLE
@@ -219,33 +194,26 @@ class TaskAdapter(
                 itemView.setOnClickListener(null)
             }
 
-            when (shippingStatus) {
-                "delivered" -> {
-                    tvStatusBadge.text = "Selesai (POD)"
-                    tvStatusBadge.setTextColor(Color.parseColor("#059669"))
-                    tvStatusBadge.setBackgroundColor(Color.parseColor("#ECFDF5"))
-                    btnViewPod.visibility = View.VISIBLE
-                    btnViewPod.setOnClickListener { listener.onViewPod(order) }
-                }
-                "shipped" -> {
-                    tvStatusBadge.text = if (hasIssue) "Kendala Pengantaran" else "Dalam Antaran"
-                    tvStatusBadge.setTextColor(if (hasIssue) Color.parseColor("#9F1239") else Color.parseColor("#1E40AF"))
-                    tvStatusBadge.setBackgroundColor(if (hasIssue) Color.parseColor("#FFE4E6") else Color.parseColor("#DBEAFE"))
+            if (isDelivered) {
+                tvStatusBadge.text = "Selesai (POD)"
+                tvStatusBadge.setTextColor(Color.parseColor("#059669"))
+                tvStatusBadge.setBackgroundColor(Color.parseColor("#ECFDF5"))
+                btnViewPod.visibility = View.VISIBLE
+                btnSubmitPod.visibility = View.GONE
+                btnReportIssue.visibility = View.GONE
+                btnViewPod.setOnClickListener { listener.onViewPod(order) }
+            } else {
+                tvStatusBadge.text = if (hasIssue) "Kendala Pengantaran" else "Siap Diantar"
+                tvStatusBadge.setTextColor(if (hasIssue) Color.parseColor("#9F1239") else Color.parseColor("#1E40AF"))
+                tvStatusBadge.setBackgroundColor(if (hasIssue) Color.parseColor("#FFE4E6") else Color.parseColor("#DBEAFE"))
 
-                    btnSubmitPod.visibility = View.VISIBLE
-                    btnReportIssue.visibility = View.VISIBLE
+                btnSubmitPod.visibility = View.VISIBLE
+                btnReportIssue.visibility = View.VISIBLE
+                btnViewPod.visibility = View.GONE
 
-                    btnSubmitPod.setOnClickListener { listener.onSubmitPod(order) }
-                    btnReportIssue.setOnClickListener { listener.onReportIssue(order) }
-                }
-                else -> {
-                    tvStatusBadge.text = "Siap Diantar"
-                    tvStatusBadge.setTextColor(Color.parseColor("#1E40AF"))
-                    tvStatusBadge.setBackgroundColor(Color.parseColor("#DBEAFE"))
-
-                    btnPickup.visibility = View.VISIBLE
-                    btnPickup.setOnClickListener { listener.onPickup(order) }
-                }
+                btnSubmitPod.text = "🤝 Serah Terima ke Reseller (POD)"
+                btnSubmitPod.setOnClickListener { listener.onSubmitPod(order) }
+                btnReportIssue.setOnClickListener { listener.onReportIssue(order) }
             }
         }
     }

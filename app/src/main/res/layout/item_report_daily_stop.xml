@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_stat_card"
+    android:padding="10dp"
+    android:layout_marginBottom="8dp">
+
+    <!-- Stop Header: Jam & Nomor Stop & Status -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+
+        <TextView
+            android:id="@+id/tvStopNumberTime"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🕒 14:30 · Stop 1"
+            android:textColor="@color/slate_600"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvStopStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="TERKIRIM (POD)"
+            android:textColor="@color/emerald_800"
+            android:background="@drawable/bg_badge_delivered"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:textSize="9.5sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Nama Toko -->
+    <TextView
+        android:id="@+id/tvStopStoreName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🏪 Toko Berkah Jaya Abadi"
+        android:textColor="@color/slate_900"
+        android:textSize="13.5sp"
+        android:textStyle="bold" />
+
+    <!-- Alamat Lengkap -->
+    <TextView
+        android:id="@+id/tvStopAddress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📍 Jl. Merdeka No. 45, RT 02/RW 04, Kediri"
+        android:textColor="@color/slate_600"
+        android:textSize="11.5sp"
+        android:layout_marginTop="2dp" />
+
+    <!-- Detail Pesanan & Kontak -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="4dp">
+
+        <TextView
+            android:id="@+id/tvStopOrderInfo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📦 #CALC-202609-001 · 12 Koli"
+            android:textColor="@color/primary_red"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvStopRecipient"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="👤 Budi Santoso"
+            android:textColor="@color/slate_500"
+            android:textSize="11sp" />
+    </LinearLayout>
+</LinearLayout>
+

@@ -188,7 +188,7 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
         }
 
         cbSelectAll.setOnClickListener {
-            taskAdapter.selectAll(cbSelectAll.isChecked, taskAdapter.isPodSelection())
+            taskAdapter.selectAll(cbSelectAll.isChecked)
         }
 
         btnCancelSelection.setOnClickListener {
@@ -198,24 +198,7 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
         btnBulkPickup.setOnClickListener {
             val selected = taskAdapter.getSelectedOrders()
             if (selected.isEmpty()) return@setOnClickListener
-
-            if (taskAdapter.isPodSelection()) {
-                openBulkPod(selected)
-            } else {
-                val plate = activeFleet?.plate_number ?: "AG 9421 PQR"
-                val count = selected.size
-                val totalWeight = selected.sumOf { if (it.package_weight > 0) it.package_weight else (it.shipment?.weight_kg ?: 25.0) }
-                val totalKoli = selected.sumOf { if (it.total_qty > 0) it.total_qty else 1 }
-
-                AlertDialog.Builder(this)
-                    .setTitle("Mulai Antar Pesanan")
-                    .setMessage("Konfirmasi keberangkatan antaran $count pesanan ke reseller menggunakan armada ($plate)?\n\n• Jumlah Muatan: $totalKoli Koli\n• Estimasi Berat: ${String.format("%.1f", totalWeight)} kg\n• Armada: $plate")
-                    .setPositiveButton("Konfirmasi & Muat ($count)") { _, _ ->
-                        executeBulkPickup(selected.map { it.id }, plate)
-                    }
-                    .setNegativeButton("Batal", null)
-                    .show()
-            }
+            openBulkPod(selected)
         }
 
         btnLogout.setOnClickListener {
@@ -234,14 +217,14 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
 
         // Chip Filters
         chipAll.setOnClickListener { setFilter("all") }
-        chipReady.setOnClickListener { setFilter("ready_to_pick") }
-        chipTransit.setOnClickListener { setFilter("in_transit") }
+        chipReady.setOnClickListener { setFilter("ready") }
+        chipTransit.setOnClickListener { setFilter("ready") }
         chipDelivered.setOnClickListener { setFilter("delivered") }
         chipIssue.setOnClickListener { setFilter("issue") }
 
         // Cards filters
-        cardFilterReady.setOnClickListener { setFilter("ready_to_pick") }
-        cardFilterTransit.setOnClickListener { setFilter("in_transit") }
+        cardFilterReady.setOnClickListener { setFilter("ready") }
+        cardFilterTransit.setOnClickListener { setFilter("ready") }
         cardFilterDelivered.setOnClickListener { setFilter("delivered") }
         cardFilterIssue.setOnClickListener { setFilter("issue") }
 
@@ -272,11 +255,11 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
         chipAll.setBackgroundResource(if (currentFilter == "all") activeBg else inactiveBg)
         chipAll.setTextColor(if (currentFilter == "all") activeText else inactiveText)
 
-        chipReady.setBackgroundResource(if (currentFilter == "ready_to_pick") activeBg else inactiveBg)
-        chipReady.setTextColor(if (currentFilter == "ready_to_pick") activeText else inactiveText)
+        val isReadyFilter = currentFilter == "ready" || currentFilter == "ready_to_pick" || currentFilter == "in_transit"
+        chipReady.setBackgroundResource(if (isReadyFilter) activeBg else inactiveBg)
+        chipReady.setTextColor(if (isReadyFilter) activeText else inactiveText)
 
-        chipTransit.setBackgroundResource(if (currentFilter == "in_transit") activeBg else inactiveBg)
-        chipTransit.setTextColor(if (currentFilter == "in_transit") activeText else inactiveText)
+        chipTransit.visibility = View.GONE
 
         chipDelivered.setBackgroundResource(if (currentFilter == "delivered") activeBg else inactiveBg)
         chipDelivered.setTextColor(if (currentFilter == "delivered") activeText else inactiveText)
@@ -294,8 +277,9 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
                 if (response.isSuccessful && response.body() != null) {
                     val dash = response.body()!!
                     dash.summary?.let { summary ->
-                        tvCountReady.text = summary.ready_to_pick.toString()
-                        tvCountInTransit.text = summary.in_transit.toString()
+                        val totalReady = if (summary.ready_to_deliver > 0) summary.ready_to_deliver else (summary.ready_to_pick + summary.in_transit)
+                        tvCountReady.text = totalReady.toString()
+                        tvCountInTransit.text = "0"
                         tvCountDelivered.text = summary.delivered_today.toString()
                         tvCountIssues.text = summary.reported_issues.toString()
                     }
@@ -370,15 +354,15 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
     }
 
     override fun onSelectionChanged(selectedCount: Int, totalSelectableCount: Int, isPodMode: Boolean) {
-        val canSelect = totalSelectableCount > 0 && (currentFilter == "all" || (isPodMode && currentFilter == "in_transit") || (!isPodMode && currentFilter == "ready_to_pick"))
+        val canSelect = totalSelectableCount > 0 && currentFilter != "delivered"
         if (canSelect) {
             layoutSelectAll.visibility = View.VISIBLE
             tvSelectAllCount.text = "$selectedCount/$totalSelectableCount"
-            tvSelectAllLabel.text = if (isPodMode) "Pilih Semua Pesanan untuk Serah Terima ke Reseller" else "Pilih Semua Pesanan Siap Diantar"
+            tvSelectAllLabel.text = "Pilih Semua Pesanan untuk Serah Terima ke Reseller"
             cbSelectAll.setOnCheckedChangeListener(null)
             cbSelectAll.isChecked = (selectedCount > 0 && selectedCount == totalSelectableCount)
             cbSelectAll.setOnCheckedChangeListener { _, isChecked ->
-                taskAdapter.selectAll(isChecked, isPodMode)
+                taskAdapter.selectAll(isChecked)
             }
         } else {
             layoutSelectAll.visibility = View.GONE
@@ -386,13 +370,8 @@ class CourierMainActivity : AppCompatActivity(), TaskAdapter.OnTaskActionListene
 
         if (selectedCount > 0) {
             cardBulkAction.visibility = View.VISIBLE
-            if (isPodMode) {
-                tvBulkSelectedCount.text = "$selectedCount pesanan dipilih (POD)"
-                btnBulkPickup.text = "Serah Terima ke Reseller ($selectedCount)"
-            } else {
-                tvBulkSelectedCount.text = "$selectedCount pesanan dipilih (Muat)"
-                btnBulkPickup.text = "Mulai Antar ($selectedCount)"
-            }
+            tvBulkSelectedCount.text = "$selectedCount pesanan dipilih untuk Serah Terima"
+            btnBulkPickup.text = "Serah Terima ke Reseller ($selectedCount)"
         } else {
             cardBulkAction.visibility = View.GONE
         }

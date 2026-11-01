@@ -24,7 +24,10 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.mayoandorid.R
 import com.example.mayoandorid.adapter.CourierReportAdapter
 import com.example.mayoandorid.adapter.ReportCustomerAdapter
+import com.example.mayoandorid.adapter.ReportDailyAdapter
 import com.example.mayoandorid.adapter.ReportProductAdapter
+import com.example.mayoandorid.model.ReportDailyItem
+import com.example.mayoandorid.model.ReportDestinationItem
 import com.example.mayoandorid.api.ApiClient
 import com.example.mayoandorid.model.CourierReportResponse
 import com.example.mayoandorid.model.Order
@@ -57,6 +60,7 @@ class CourierReportActivity : AppCompatActivity() {
     private lateinit var tvReportIssues: TextView
 
     private lateinit var tabReportOrders: TextView
+    private lateinit var tabReportDaily: TextView
     private lateinit var tabReportProducts: TextView
     private lateinit var tabReportCustomers: TextView
 
@@ -71,6 +75,7 @@ class CourierReportActivity : AppCompatActivity() {
     private lateinit var layoutEmptyReport: View
 
     private lateinit var reportAdapter: CourierReportAdapter
+    private lateinit var dailyAdapter: ReportDailyAdapter
     private lateinit var productAdapter: ReportProductAdapter
     private lateinit var customerAdapter: ReportCustomerAdapter
 
@@ -79,6 +84,7 @@ class CourierReportActivity : AppCompatActivity() {
     private var currentSearch = ""
 
     private var cachedOrders: List<Order> = emptyList()
+    private var cachedDaily: List<ReportDailyItem> = emptyList()
     private var cachedProducts: List<ReportProductItem> = emptyList()
     private var cachedCustomers: List<ReportCustomerItem> = emptyList()
 
@@ -123,6 +129,7 @@ class CourierReportActivity : AppCompatActivity() {
         tvReportIssues = findViewById(R.id.tvReportIssues)
 
         tabReportOrders = findViewById(R.id.tabReportOrders)
+        tabReportDaily = findViewById(R.id.tabReportDaily)
         tabReportProducts = findViewById(R.id.tabReportProducts)
         tabReportCustomers = findViewById(R.id.tabReportCustomers)
 
@@ -138,6 +145,7 @@ class CourierReportActivity : AppCompatActivity() {
 
         rvReportTasks.layoutManager = LinearLayoutManager(this)
         reportAdapter = CourierReportAdapter(this)
+        dailyAdapter = ReportDailyAdapter(this)
         productAdapter = ReportProductAdapter()
         customerAdapter = ReportCustomerAdapter(this)
 
@@ -154,6 +162,12 @@ class CourierReportActivity : AppCompatActivity() {
 
         tabReportOrders.setOnClickListener {
             activeViewMode = "orders"
+            updateTabStyles()
+            filterAndDisplayCurrentTab()
+        }
+
+        tabReportDaily.setOnClickListener {
+            activeViewMode = "daily"
             updateTabStyles()
             filterAndDisplayCurrentTab()
         }
@@ -193,6 +207,9 @@ class CourierReportActivity : AppCompatActivity() {
 
         tabReportOrders.setBackgroundResource(if (activeViewMode == "orders") selectedBg else unselectedBg)
         tabReportOrders.setTextColor(if (activeViewMode == "orders") selectedText else unselectedText)
+
+        tabReportDaily.setBackgroundResource(if (activeViewMode == "daily") selectedBg else unselectedBg)
+        tabReportDaily.setTextColor(if (activeViewMode == "daily") selectedText else unselectedText)
 
         tabReportProducts.setBackgroundResource(if (activeViewMode == "products") selectedBg else unselectedBg)
         tabReportProducts.setTextColor(if (activeViewMode == "products") selectedText else unselectedText)
@@ -250,7 +267,13 @@ class CourierReportActivity : AppCompatActivity() {
                         tvReportIssues.text = summary.issues_count.toString()
                     }
 
-                    cachedOrders = report.tasks?.data ?: emptyList()
+                                        cachedOrders = report.tasks?.data ?: emptyList()
+
+                    cachedDaily = if (!report.by_daily.isNullOrEmpty()) {
+                        report.by_daily
+                    } else {
+                        computeLocalDaily(cachedOrders)
+                    }
 
                     cachedProducts = if (!report.by_products.isNullOrEmpty()) {
                         report.by_products
@@ -283,6 +306,27 @@ class CourierReportActivity : AppCompatActivity() {
         val query = currentSearch.lowercase()
 
         when (activeViewMode) {
+            "daily" -> {
+                rvReportTasks.adapter = dailyAdapter
+                val filtered = if (query.isEmpty()) {
+                    cachedDaily
+                } else {
+                    cachedDaily.mapNotNull { day ->
+                        val matchesDay = day.formatted_date.lowercase().contains(query) || day.day_name.lowercase().contains(query)
+                        val matchingDest = day.destinations.filter { dest ->
+                            dest.store_name.lowercase().contains(query) ||
+                            dest.address.lowercase().contains(query) ||
+                            dest.customer_name.lowercase().contains(query) ||
+                            dest.order_code.lowercase().contains(query)
+                        }
+                        if (matchesDay) day
+                        else if (matchingDest.isNotEmpty()) day.copy(destinations = matchingDest)
+                        else null
+                    }
+                }
+                dailyAdapter.setItems(filtered)
+                layoutEmptyReport.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+            }
             "products" -> {
                 rvReportTasks.adapter = productAdapter
                 val filtered = if (query.isEmpty()) {
@@ -398,6 +442,46 @@ class CourierReportActivity : AppCompatActivity() {
             )
         }
         return map.values.sortedByDescending { it.total_qty }
+    }
+
+    private fun computeLocalDaily(orders: List<Order>): List<ReportDailyItem> {
+        val map = mutableMapOf<String, MutableList<Order>>()
+        for (order in orders) {
+            val dateKey = (order.delivered_at ?: (order.shipped_at ?: (order.packed_at ?: "2026-11-01"))).take(10)
+            map.getOrPut(dateKey) { mutableListOf() }.add(order)
+        }
+
+        return map.entries.map { (dateKey, dayOrders) ->
+            val totalQty = dayOrders.sumOf { if (it.total_qty > 0) it.total_qty else 1 }
+            val distinctStores = dayOrders.mapNotNull { it.store_name }.distinct().size.coerceAtLeast(1)
+            val destinations = dayOrders.map { o ->
+                val dtRaw = o.delivered_at ?: (o.shipped_at ?: (o.packed_at ?: "14:00"))
+                val timeStr = if (dtRaw.contains("T")) dtRaw.substringAfter("T").take(5) else "14:00"
+                ReportDestinationItem(
+                    order_code = o.calculation_code ?: "ORD-${o.id}",
+                    store_name = o.store_name ?: "Toko Reseller",
+                    customer_name = o.recipient_name ?: "Pemilik Toko",
+                    address = o.shipping_address ?: "Alamat belum tercatat",
+                    phone = o.recipient_phone ?: "-",
+                    qty = if (o.total_qty > 0) o.total_qty else 1,
+                    weight_kg = if (o.package_weight > 0) o.package_weight else (o.shipment?.weight_kg ?: 25.0),
+                    status = o.shipping_status ?: "shipped",
+                    delivery_time = timeStr,
+                    pod_receiver = o.recipient_name,
+                    fleet_plate = o.shipment?.fleet_plate_number ?: "AG 9421 PQR"
+                )
+            }
+
+            ReportDailyItem(
+                date = dateKey,
+                formatted_date = "Rute $dateKey",
+                day_name = "Hari",
+                total_orders = dayOrders.size,
+                total_qty = totalQty,
+                total_stores = distinctStores,
+                destinations = destinations
+            )
+        }.sortedByDescending { it.date }
     }
 
     private fun downloadReportFile(format: String) {
